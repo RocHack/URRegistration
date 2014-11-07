@@ -1,5 +1,20 @@
 #!/bin/sh
 
+LOGFILE="LOG"
+
+> $LOGFILE
+
+log()
+{
+    msg="$(date +%s) [$(date)]"
+
+    [ $# = 0 ] || msg="$msg $*"
+
+    echo $msg >> $LOGFILE
+}
+
+log 'BEGIN'
+
 logged_in=
 
 id=
@@ -8,32 +23,57 @@ password=
 is_insecure()
 {
     # Check if a file is accessible to other users
-    [ -n $(find $1 -perm /066) ]
+    if [ -n $(find $1 -perm /066) ]
+    then
+        log "is_insecure(): $1 => TRUE"
+        return 0
+    fi
+
+    log "is_insecure(): $1 => FALSE"
+
+    return 1
 }
 
 # TODO - Test this
 make_secure()
 {
+    log "make_secure(): securing $1"
     chmod -066 $1
 }
 
 # get saved login info from ~/.netrc
 parse_netrc()
 {
+    log 'parse_netrc(): BEGIN'
+
 	netrc='~/.netrc'
-	[ -e $netrc ] || return 1
+	if ! [ -e $netrc ]
+    then
+        log "parse_netrc(): netrc ($netrc) does not exist."
+
+        log 'parse_netrc(): END'
+
+        return 1
+    fi
 
 	if is_insecure $netrc
 	then
+        log 'parse_netrc(): netrc is insecure'
+
 		echo 'Warning: .netrc has insecure permissions.' >&2
 
+        log 'parse_netrc(): asking to fix netrc security'
         read -p 'Do you want to fix it? [Y/n] ' fix
+        log "parse_netrc(): asked to fix netrc; fix = $fix"
 
         case $fix in
             [yY][eE][sS]|[yY])
+                log 'parse_netrc(): securing netrc"'
                 make_secure $netrc
                 ;;
-            *) ;;
+            *)
+                log 'parse_netrc(): not securing netrc'
+                ;;
         esac
 	fi
 
@@ -62,40 +102,73 @@ has_valid_session()
 
 Login()
 {
+    log 'Login(): BEGIN'
+
     parse_netrc
 
 	if [ -z $id ]
 	then
+        log "Login(): \$id = $id; reading id"
 		read -p 'Net ID: ' id
+        log "Login(): read id; \$id = $id"
 	fi
 
 	if [ -z $password ]
 	then
+        log 'Login(): reading password'
 		stty -echo
 		read -p 'Password: ' password; echo
 		stty echo
+        log 'Login(): read password'
 	fi
 
     if ! command -v ruby &> /dev/null
     then
-        echo 'Error: unable to run Ruby.' >&2
+        echo 'Error: unable to run ruby.' >&2
+
+        log 'Login(): Error: command Ruby does not exist. Ruby must be '\
+        'installed for this script to work.'
+
+        log 'Login(): END'
+
         return 1
     fi
 
+    log 'Login(): calling login.rb to log in'
     if ! ruby login.rb $id $password
     then
         echo 'Error: unable to log in.' >&2
+
+        log 'Login(): Error: unable to log in'
+
         logged_in=
+
+        log 'Login(): END'
 
         return 1
     fi
+    log 'Login(): should be successfully logged in'
 
     logged_in=:
+
+    log 'Login(): END'
 
     return 0
 }
 
 is_valid_crn()
 {
-    [ ${#1} = 5 ] && echo "$1" | grep -q '[0-9]\{5\}' -
+    if [ ${#1} = 5 ] && echo "$1" | grep -q '[0-9]\{5\}' -
+    then
+        log "is_valid_crn(): $1 => TRUE"
+        return 0
+    fi
+
+    log "is_valid_crn(): $1 => FALSE"
+
+    return 1
 }
+
+Login
+
+log 'END'
