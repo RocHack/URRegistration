@@ -1,6 +1,6 @@
 #!/bin/sh
 
-logged_in=false
+logged_in=
 
 id=
 password=
@@ -38,27 +38,26 @@ parse_netrc()
 	fi
 
     # TODO - figure out what this is doing and modify as needed
-    cred=$(sed -n "/machine my.rochester.edu/,/machine /p" $netrc)
-    user_id=$(sed -n 's/.*login \([^ ]*\).*/\1/p' <<< $cred)
-    password=$(sed -n 's/.*password \([^ ]*\).*/\1/p' <<< $cred)
+    #cred=$(sed -n "/machine my.rochester.edu/,/machine /p" $netrc)
+    #user_id=$(sed -n 's/.*login \([^ ]*\).*/\1/p' <<< $cred)
+    #password=$(sed -n 's/.*password \([^ ]*\).*/\1/p' <<< $cred)
 }
 
-# Check if the current session is valid
-check_session()
+has_valid_session()
 {
-    $logged_in || return 0
+    [ $logged_in ] || return 0
 
     # TODO - implement this
-    if true
+    if :
 	then
-        $logged_in=true
+        logged_in=:
 		return 0
-	else
-		logged_in=false
-		password=
+    fi
 
-		return 1
-	fi
+    logged_in=
+    password=
+
+    return 1
 }
 
 Login()
@@ -77,16 +76,26 @@ Login()
 		stty echo
 	fi
 
-    if ruby login.rb $id $password
+    if ! command -v ruby &> /dev/null
     then
-        logged_in=true
-        return 0;
-    else
+        echo 'Error: unable to run Ruby.' >&2
+        return 1
+    fi
+
+    if ! ruby login.rb $id $password
+    then
         echo 'Error: unable to log in.' >&2
-        logged_in=false
+        logged_in=
 
         return 1
     fi
+
+    logged_in=:
+
+    return 0
 }
 
-
+is_valid_crn()
+{
+    [ ${#1} = 5 ] && echo "$1" | grep -q '[0-9]\{5\}' -
+}
