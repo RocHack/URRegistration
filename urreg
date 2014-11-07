@@ -259,6 +259,33 @@ read_crns()
     return 0
 }
 
+add_course()
+{
+    log 'add_course(): BEGIN'
+
+    crn=$1
+    ts=$2
+
+    log "add_course(): using \$crn = $crn, \$ts = $ts"
+
+    if [ "$3" = 'A' ] || [ "$3" = 'N' ]
+    then
+        gt="$3"
+
+        log "add_course(): grade type given; \$gt = $gt"
+    else
+        gt="N"
+
+        log "add_course(): grade type not given; \$gt = $gt"
+    fi
+
+    curl -k --ssl "https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&TS=$ts&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=$crn&GRADE_TYPE=$gt"
+
+    curl -k --ssl "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&TS=$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
+
+    log 'add_course(): END'
+}
+
 if ! read_crns
 then
     log 'No CRNs entered'
@@ -267,5 +294,19 @@ then
 
     exit 0
 fi
+
+if ! Login
+then
+    log 'Login failed'
+
+    log 'END'
+
+    exit 1
+fi
+
+for crn in $crns
+do
+    add_course $crn $(date +%s)
+done
 
 log 'END'
