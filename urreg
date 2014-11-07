@@ -1,6 +1,7 @@
 #!/bin/sh
 
 LOGFILE="LOG"
+CONFIRM_CRN=:
 
 > $LOGFILE
 
@@ -19,6 +20,8 @@ logged_in=
 
 id=
 password=
+
+crns=
 
 is_insecure()
 {
@@ -122,17 +125,22 @@ Login()
         log 'Login(): read password'
 	fi
 
-    if ! command -v ruby &> /dev/null
-    then
-        echo 'Error: unable to run ruby.' >&2
+    # TODO - figure out why this check isn't working. For some reason this
+    # seems to run differently in a script/function or something, since I can't
+    # replicate it on the command line. For now just assume that they have
+    # ruby; the error msg won't be as nice though.
 
-        log 'Login(): Error: command Ruby does not exist. Ruby must be '\
-        'installed for this script to work.'
-
-        log 'Login(): END'
-
-        return 1
-    fi
+    # if ! command -v ruby &> /dev/null
+    # then
+    #     echo 'Error: unable to run ruby.' >&2
+    # 
+    #     log 'Login(): Error: command Ruby does not exist. Ruby must be '\
+    #     'installed for this script to work.'
+    # 
+    #     log 'Login(): END'
+    # 
+    #     return 1
+    # fi
 
     log 'Login(): calling login.rb to log in'
     if ! ruby login.rb $id $password
@@ -169,6 +177,95 @@ is_valid_crn()
     return 1
 }
 
-Login
+read_crn()
+{
+    log 'read_crn(): BEGIN'
+
+    while :
+    do
+        while :
+        do
+            log "read_crn(): \$crn = $crn; reading crn"
+            read -p 'CRN: ' crn
+            log "read_crn(): read crn; \$crn = $crn"
+
+            if [ -z $crn ]
+            then
+                log 'read_crn(): \$crn is empty; returning'
+
+                log 'read_crn(): END'
+
+                return 1
+            fi
+
+            if is_valid_crn $crn
+            then
+                log "read_crn(): using \$crn = $crn"
+                break
+            fi
+
+            log 'read_crn(): invalid crn entered; looping'
+
+            echo 'Error: invalid CRN.' >&2
+        done
+
+        log "read_crn(): \$crn_confirm = $crn_confirm; reading crn"\
+            "confirmation"
+
+        read -p 'CRN confirmation: ' crn_confirm
+        log "read_crn(): read crn confirmation; \$crn_confirm = $crn_confirm"
+
+        if [ "$crn" = "$crn_confirm" ]
+        then
+            log "read_crn(): CRNs $crn and $crn_confirm match"
+
+            log 'read_crn(): END'
+
+            return 0
+        fi
+
+        log "read_crn(): CRNs $crn and $crn_confirm do not match; looping"
+
+        echo 'Error: CRNs do not match.' >&2
+    done
+
+    log 'read_crn(): Error: reached unreachable statement.'
+}
+
+read_crns()
+{
+    log 'read_crns(): BEGIN'
+
+    while read_crn
+    do
+        crns="$crns $crn"
+
+        log "read_crns(): crn read; \$crn = $crn; \$crns = $crns"
+    done
+
+    if [ -z $crns ]
+    then
+        log 'read_crns(): \$crns is empty; not registering for any classes'
+
+        echo 'Warning: you have not entered any classes to register for.' &>2
+
+        log 'read_crns(): END'
+
+        return 1
+    fi
+
+    log 'read_crns(): END'
+
+    return 0
+}
+
+if ! read_crns
+then
+    log 'No CRNs entered'
+
+    log 'END'
+
+    exit 0
+fi
 
 log 'END'
