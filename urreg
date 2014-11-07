@@ -1,9 +1,92 @@
 #!/bin/sh
 
+logged_in=false
+
 id=
 password=
 
+is_insecure()
+{
+    # Check if a file is accessible to other users
+    [ -n $(find $1 -perm /066) ]
+}
+
+# TODO - Test this
+make_secure()
+{
+    chmod -066 $1
+}
+
+# get saved login info from ~/.netrc
+parse_netrc()
+{
+	netrc='~/.netrc'
+	[ -e $netrc ] || return 1
+
+	if is_insecure $netrc
+	then
+		echo 'Warning: .netrc has insecure permissions.' >&2
+
+        read -p 'Do you want to fix it? [Y/n] ' fix
+
+        case $fix in
+            [yY][eE][sS]|[yY])
+                make_secure $netrc
+                ;;
+            *) ;;
+        esac
+	fi
+
+    # TODO - figure out what this is doing and modify as needed
+    cred=$(sed -n "/machine my.rochester.edu/,/machine /p" $netrc)
+    user_id=$(sed -n 's/.*login \([^ ]*\).*/\1/p' <<< $cred)
+    password=$(sed -n 's/.*password \([^ ]*\).*/\1/p' <<< $cred)
+}
+
+# Check if the current session is valid
+check_session()
+{
+    $logged_in || return 0
+
+    # TODO - implement this
+    if true
+	then
+        $logged_in=true
+		return 0
+	else
+		logged_in=false
+		password=
+
+		return 1
+	fi
+}
+
 Login()
 {
-    ruby login.rb $id $password
+    parse_netrc
+
+	if [ -z $id ]
+	then
+		read -p 'Net ID: ' id
+	fi
+
+	if [ -z $password ]
+	then
+		stty -echo
+		read -p 'Password: ' password; echo
+		stty echo
+	fi
+
+    if ruby login.rb $id $password
+    then
+        logged_in=true
+        return 0;
+    else
+        echo 'Error: unable to log in.' >&2
+        logged_in=false
+
+        return 1
+    fi
 }
+
+
