@@ -130,22 +130,17 @@ Login()
         log 'Login(): read password'
 	fi
 
-    # TODO - figure out why this check isn't working. For some reason this
-    # seems to run differently in a script/function or something, since I can't
-    # replicate it on the command line. For now just assume that they have
-    # ruby; the error msg won't be as nice though.
-
-    # if ! command -v ruby &> /dev/null
-    # then
-    #     echo 'Error: unable to run ruby.' >&2
-    # 
-    #     log 'Login(): Error: command Ruby does not exist. Ruby must be '\
-    #     'installed for this script to work.'
-    # 
-    #     log 'Login(): END'
-    # 
-    #     return 1
-    # fi
+    if ! command -v ruby > /dev/null 2>&1
+    then
+        echo 'Error: unable to run ruby.' >&2
+    
+        log 'Login(): Error: command Ruby does not exist. Ruby must be '\
+        'installed for this script to work.'
+    
+        log 'Login(): END'
+    
+        return 1
+    fi
 
     log 'Login(): calling login.rb to log in'
     if ! ruby login.rb $id $password
