@@ -1,0 +1,369 @@
+#!/bin/sh
+
+LOGFILE="LOG"
+CONFIRM_CRN=
+
+> $LOGFILE
+
+log()
+{
+    msg="$(date +%s) [$(date)]"
+
+    [ $# = 0 ] || msg="$msg $*"
+
+    echo $msg >> $LOGFILE
+}
+
+log 'BEGIN'
+
+logged_in=
+
+id=
+password=
+
+crns=
+
+is_insecure()
+{
+    # Check if a file is accessible to other users
+    if [ -n $(find $1 -perm /066) ]
+    then
+        log "is_insecure(): $1 => TRUE"
+        return 0
+    fi
+
+    log "is_insecure(): $1 => FALSE"
+
+    return 1
+}
+
+# TODO - Test this
+make_secure()
+{
+    log "make_secure(): securing $1"
+    chmod -066 $1
+}
+
+# get saved login info from ~/.netrc
+parse_netrc()
+{
+    log 'parse_netrc(): BEGIN'
+
+	netrc='~/.netrc'
+	if ! [ -e $netrc ]
+    then
+        log "parse_netrc(): netrc ($netrc) does not exist."
+
+        log 'parse_netrc(): END'
+
+        return 1
+    fi
+
+	if is_insecure $netrc
+	then
+		echo 'Warning: .netrc has insecure permissions.' >&2
+
+        log 'parse_netrc(): netrc is insecure'
+
+        log 'parse_netrc(): asking to fix netrc security'
+        read -p 'Do you want to fix it? [Y/n] ' fix
+        log "parse_netrc(): asked to fix netrc; fix = $fix"
+
+        case $fix in
+            [yY][eE][sS]|[yY])
+                log 'parse_netrc(): securing netrc"'
+                make_secure $netrc
+                ;;
+            *)
+                log 'parse_netrc(): not securing netrc'
+                ;;
+        esac
+	fi
+
+    # TODO - figure out what this is doing and modify as needed
+    #cred=$(sed -n "/machine my.rochester.edu/,/machine /p" $netrc)
+    #user_id=$(sed -n 's/.*login \([^ ]*\).*/\1/p' <<< $cred)
+    #password=$(sed -n 's/.*password \([^ ]*\).*/\1/p' <<< $cred)
+}
+
+has_valid_session()
+{
+    [ $logged_in ] || return 0
+
+    # TODO - implement this
+    if :
+	then
+        logged_in=:
+		return 0
+    fi
+
+    logged_in=
+    password=
+
+    return 1
+}
+
+Login()
+{
+    log 'Login(): BEGIN'
+
+    parse_netrc
+
+	if [ -z $id ]
+	then
+        log "Login(): \$id = $id; reading id"
+		read -p 'Net ID: ' id
+        log "Login(): read id; \$id = $id"
+	fi
+
+	if [ -z $password ]
+	then
+        log 'Login(): reading password'
+		stty -echo
+		read -p 'Password: ' password; echo
+		stty echo
+        log 'Login(): read password'
+	fi
+
+    # TODO - figure out why this check isn't working. For some reason this
+    # seems to run differently in a script/function or something, since I can't
+    # replicate it on the command line. For now just assume that they have
+    # ruby; the error msg won't be as nice though.
+
+    # if ! command -v ruby &> /dev/null
+    # then
+    #     echo 'Error: unable to run ruby.' >&2
+    # 
+    #     log 'Login(): Error: command Ruby does not exist. Ruby must be '\
+    #     'installed for this script to work.'
+    # 
+    #     log 'Login(): END'
+    # 
+    #     return 1
+    # fi
+
+    log 'Login(): calling login.rb to log in'
+    if ! ruby login.rb $id $password
+    then
+        echo 'Error: unable to log in.' >&2
+
+        log 'Login(): Error: unable to log in'
+
+        logged_in=
+
+        log 'Login(): END'
+
+        return 1
+    fi
+    log 'Login(): should be successfully logged in'
+
+    logged_in=:
+
+    log 'Login(): END'
+
+    return 0
+}
+
+is_valid_crn()
+{
+    if [ ${#1} = 5 ] && echo "$1" | grep -q '[0-9]\{5\}' -
+    then
+        log "is_valid_crn(): $1 => TRUE"
+        return 0
+    fi
+
+    log "is_valid_crn(): $1 => FALSE"
+
+    return 1
+}
+
+read_crn()
+{
+    log 'read_crn(): BEGIN'
+
+    while :
+    do
+        while :
+        do
+            log "read_crn(): \$crn = $crn; reading crn"
+            read -p 'CRN: ' crn
+            log "read_crn(): read crn; \$crn = $crn"
+
+            if [ -z $crn ]
+            then
+                log 'read_crn(): \$crn is empty; returning'
+
+                log 'read_crn(): END'
+
+                return 1
+            fi
+
+            if is_valid_crn $crn
+            then
+                log "read_crn(): using \$crn = $crn"
+                break
+            fi
+
+            echo 'Error: invalid CRN.' >&2
+
+            log 'read_crn(): invalid crn entered; looping'
+        done
+
+        if ! [ $CONFIRM_CRN ]
+        then
+            log 'read_crn(): skipping crn confirmation'
+
+            return 0
+        fi
+
+        log "read_crn(): \$crn_confirm = $crn_confirm; reading crn"\
+            "confirmation"
+
+        read -p 'CRN confirmation: ' crn_confirm
+        log "read_crn(): read crn confirmation; \$crn_confirm = $crn_confirm"
+
+        if [ "$crn" = "$crn_confirm" ]
+        then
+            log "read_crn(): CRNs $crn and $crn_confirm match"
+
+            log 'read_crn(): END'
+
+            return 0
+        fi
+
+        echo 'Error: CRNs do not match.' >&2
+
+        log "read_crn(): CRNs $crn and $crn_confirm do not match; looping"
+    done
+
+    log 'read_crn(): Error: reached unreachable statement.'
+}
+
+read_crns()
+{
+    log 'read_crns(): BEGIN'
+
+    while read_crn
+    do
+        crns="$crns $crn"
+
+        log "read_crns(): crn read; \$crn = $crn; \$crns = $crns"
+    done
+
+    if [ -z $crns ]
+    then
+        echo 'Warning: you have not entered any classes to register for.' &>2
+
+        log 'read_crns(): \$crns is empty; not registering for any classes'
+
+        log 'read_crns(): END'
+
+        return 1
+    fi
+
+    log 'read_crns(): END'
+
+    return 0
+}
+
+add_course()
+{
+    log 'add_course(): BEGIN'
+
+    crn="$1"
+    ts=1415370325856
+
+    log "add_course(): using \$crn = $crn, \$ts = $ts"
+
+    # 'A' is for auditing; 'N' is for normal grading
+    if [ "$3" = 'A' ]
+    then
+        gt="$3"
+
+        log "add_course(): grade type given; \$gt = $gt"
+    else
+        gt="N"
+
+        log "add_course(): grade type not given; \$gt = $gt"
+    fi
+
+    add_url="https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&TS=$ts&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=$crn&GRADE_TYPE=$gt"
+
+    submit_url="https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&TS=$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
+
+    log "add_course(): adding course to cart using \$add_url = $add_url"
+
+    # I'm not sure why but for both curl and Ruby's Mechanize, but not for
+    # browsers, the SSL certificate for the registration pages is found invalid
+    # and can't be validated properly. It works with the check disabled but is
+    # less secure.
+
+    xdg-open "$add_url"
+    err=$?
+
+    if [ $err != 0 ]
+    then
+        echo 'Error: browser failed.' >&2
+
+        log "add_course(): browser failed; exit code = $err"
+
+        log 'add_course(): END'
+
+        return 1
+    fi
+
+    # TODO - analyze add_html for errors
+
+    echo "$add_html"
+
+    log 'add_course(): added course to cart'
+
+    log "add_course(): submitting cart using \$submit_url = $submit_url"
+
+    xdg-open "$submit_url"
+    err=$?
+
+    if [ $err != 0 ]
+    then
+        echo 'Error: browser failed.' >&2
+
+        log "add_course(): browser failed; exit code = $err"
+
+        log 'add_course(): END'
+
+        return 1
+    fi
+
+    # TODO - analyze submit_html for errors
+
+    log 'add_course(): submitted cart'
+
+    log 'add_course(): END'
+
+    return 0
+}
+
+if ! read_crns
+then
+    log 'No CRNs entered'
+
+    log 'END'
+
+    exit 0
+fi
+
+if ! Login
+then
+    log 'Login failed'
+
+    log 'END'
+
+    exit 1
+fi
+
+for crn in $crns
+do
+    add_course $crn $(date +%s)
+done
+
+log 'END'
