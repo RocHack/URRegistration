@@ -6,7 +6,7 @@
 # yet, but it's mostly there.
 
 LOGFILE="LOG"
-CONFIRM_CRN=
+CONFIRM_CRN=false
 
 > $LOGFILE
 
@@ -21,7 +21,7 @@ log()
 
 log 'BEGIN'
 
-logged_in=
+logged_in=false
 
 id=
 password=
@@ -93,16 +93,16 @@ parse_netrc()
 
 has_valid_session()
 {
-    [ $logged_in ] || return 0
+    $logged_in || return 0
 
     # TODO - implement this
-    if :
+    if true
 	then
-        logged_in=:
+        logged_in=true
 		return 0
     fi
 
-    logged_in=
+    logged_in=false
     password=
 
     return 1
@@ -162,7 +162,7 @@ Login()
     fi
     log 'Login(): should be successfully logged in'
 
-    logged_in=:
+    logged_in=true
 
     log 'Login(): END'
 
@@ -186,9 +186,9 @@ read_crn()
 {
     log 'read_crn(): BEGIN'
 
-    while :
+    while true
     do
-        while :
+        while true
         do
             log "read_crn(): \$crn = $crn; reading crn"
             read -p 'CRN: ' crn
@@ -214,7 +214,7 @@ read_crn()
             log 'read_crn(): invalid crn entered; looping'
         done
 
-        if ! [ $CONFIRM_CRN ]
+        if ! $CONFIRM_CRN
         then
             log 'read_crn(): skipping crn confirmation'
 
