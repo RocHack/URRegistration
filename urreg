@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Some code/ideas taken from bb repo, primarily in terms of the netrc. It's
+# possible that these programs could be integrated at some point, or they could
+# just share the netrc. I don't think the netrc integration actually works here
+# yet, but it's mostly there.
+
 LOGFILE="LOG"
 CONFIRM_CRN=
 
