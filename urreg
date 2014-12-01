@@ -271,7 +271,7 @@ add_course()
     log 'add_course(): BEGIN'
 
     crn="$1"
-    ts="$2"
+    ts=1415370325856
 
     log "add_course(): using \$crn = $crn, \$ts = $ts"
 
