@@ -1,5 +1,5 @@
-URReg
-=====
+URRegistration
+==============
 
 This is an attempt to automate UR registration. The idea is to simply enter the
 CRNs of the courses you want, and this will ping the site and automatically
@@ -11,8 +11,8 @@ timestamp as a GET param.
 It's currently a mess with temp files and scripts and nothing working. The
 registration site is a mess, which makes this fairly difficult.
 
-My Attempts So Far
-==================
+Attempts So Far
+===============
 
 Browser
 -------
