@@ -1,0 +1,8 @@
+#!/bin/bash
+
+read id
+stty -echo
+read password
+stty echo
+
+ruby login.rb $id $password
