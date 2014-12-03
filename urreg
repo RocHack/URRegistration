@@ -119,14 +119,14 @@ Login()
 
     parse_netrc
 
-	if [ -z $id ]
+	if [ -z "$id" ]
 	then
         log "Login(): \$id = $id; reading id"
 		read -p 'Net ID: ' id
         log "Login(): read id; \$id = $id"
 	fi
 
-	if [ -z $password ]
+	if [ -z "$password" ]
 	then
         log 'Login(): reading password'
 		stty -echo
@@ -152,7 +152,7 @@ Login()
     # TODO - Add the necessary request after login here
 
     log 'Login(): calling login.rb to log in'
-    if ! ruby login.rb $id $password
+    if ! ruby login.rb "$id" "$password"
     then
         echo 'Error: unable to log in.' >&2
 
