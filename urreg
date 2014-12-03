@@ -19,6 +19,8 @@ log()
     echo $msg >> $LOGFILE
 }
 
+log 'URReg v1.0'
+
 log 'BEGIN'
 
 logged_in=false
@@ -31,7 +33,7 @@ crns=
 is_insecure()
 {
     # Check if a file is accessible to other users
-    if [ -n $(find $1 -perm /066) ]
+    if [ -n "$(find $1 -perm /066)" ]
     then
         log "is_insecure(): $1 => TRUE"
         return 0
@@ -54,8 +56,8 @@ parse_netrc()
 {
     log 'parse_netrc(): BEGIN'
 
-	netrc='~/.netrc'
-	if ! [ -e $netrc ]
+	netrc="$HOME/.netrc"
+	if [ ! -f "$netrc" ]
     then
         log "parse_netrc(): netrc ($netrc) does not exist."
 
@@ -76,7 +78,7 @@ parse_netrc()
 
         case $fix in
             [yY][eE][sS]|[yY])
-                log 'parse_netrc(): securing netrc"'
+                log 'parse_netrc(): securing netrc'
                 make_secure $netrc
                 ;;
             *)
@@ -85,10 +87,13 @@ parse_netrc()
         esac
 	fi
 
-    # TODO - figure out what this is doing and modify as needed
-    #cred=$(sed -n "/machine my.rochester.edu/,/machine /p" $netrc)
-    #user_id=$(sed -n 's/.*login \([^ ]*\).*/\1/p' <<< $cred)
-    #password=$(sed -n 's/.*password \([^ ]*\).*/\1/p' <<< $cred)
+    cred=$(sed -n '/machine my\.rochester\.edu/,/machine /p' $netrc)
+    id=$(echo $cred | sed -n 's/.*login \([^ ]*\).*/\1/p')
+    password=$(echo $cred | sed -n 's/.*password \([^ ]*\).*/\1/p')
+
+    log "parse_netrc(): \$cred = $cred; \$id = $id"
+
+    log "parse_netrc(): END"
 }
 
 has_valid_session()
@@ -130,6 +135,8 @@ Login()
         log 'Login(): read password'
 	fi
 
+    # TODO - Turn this into curl
+
     if ! command -v ruby > /dev/null 2>&1
     then
         echo 'Error: unable to run ruby.' >&2
@@ -141,6 +148,8 @@ Login()
     
         return 1
     fi
+
+    # TODO - Add the necessary request after login here
 
     log 'Login(): calling login.rb to log in'
     if ! ruby login.rb $id $password
@@ -191,7 +200,7 @@ read_crn()
 
             if [ -z $crn ]
             then
-                log 'read_crn(): \$crn is empty; returning'
+                log 'read_crn(): $crn is empty; returning'
 
                 log 'read_crn(): END'
 
