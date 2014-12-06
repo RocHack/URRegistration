@@ -2,13 +2,39 @@
 
 # Some code/ideas taken from bb repo, primarily in terms of the netrc. It's
 # possible that these programs could be integrated at some point, or they could
-# just share the netrc. I don't think the netrc integration actually works here
-# yet, but it's mostly there.
+# just share the netrc.
 
-LOGFILE="LOG"
+# Curl requests taken from Firefox's Firebug
+
+v=""
+
+while [ -n "$1" ]
+do
+    case "$1" in
+    "-v"|"--verbose")
+        set -x
+        v="-v"
+        ;;
+    esac
+
+    shift
+done
+
+COOKIE_JAR="COOKIES"
+LOG_FILE="LOG"
+HTML_FILE="HTML"
 CONFIRM_CRN=false
 
-> $LOGFILE
+# I'm not sure why but for both curl and Ruby's Mechanize, but not for
+# browsers, the SSL certificate for the registration pages is found invalid
+# and can't be validated properly. It works with the check disabled but is
+# less secure.
+
+curl_args="-s $v -k -c $COOKIE_JAR -b $COOKIE_JAR"
+
+> $LOG_FILE
+> $COOKIE_JAR
+> $HTML_FILE
 
 log()
 {
@@ -16,10 +42,17 @@ log()
 
     [ $# = 0 ] || msg="$msg $*"
 
-    echo $msg >> $LOGFILE
+    echo $msg >> $LOG_FILE
 }
 
+echo "WARNING: the file '$HTML_FILE' will contain your password in plain text."
+echo "Do not share this file with anyone else."
+
 log 'URReg v1.0'
+
+log "Using $COOKIE_JAR as the cookie jar"
+
+log "\$curl_args = \"$curl_args\""
 
 log 'BEGIN'
 
@@ -48,8 +81,10 @@ is_insecure()
 make_secure()
 {
     log "make_secure(): securing $1"
-    chmod -066 $1
+    chmod -066 "$1"
 }
+
+make_secure "$HTML_FILE"
 
 # get saved login info from ~/.netrc
 parse_netrc()
@@ -77,23 +112,33 @@ parse_netrc()
         log "parse_netrc(): asked to fix netrc; fix = $fix"
 
         case $fix in
-            [yY][eE][sS]|[yY])
-                log 'parse_netrc(): securing netrc'
-                make_secure $netrc
-                ;;
-            *)
-                log 'parse_netrc(): not securing netrc'
-                ;;
+        [yY][eE][sS]|[yY])
+            log 'parse_netrc(): securing netrc'
+            make_secure $netrc
+            ;;
+
+        *)
+            log 'parse_netrc(): not securing netrc'
+            ;;
         esac
 	fi
 
-    cred=$(sed -n '/machine my\.rochester\.edu/,/machine /p' $netrc)
-    id=$(echo $cred | sed -n 's/.*login \([^ ]*\).*/\1/p')
-    password=$(echo $cred | sed -n 's/.*password \([^ ]*\).*/\1/p')
+    cred="$(sed -n '/machine my\.rochester\.edu/,/machine /p' $netrc)"
+    id="$(echo $cred | sed -n 's/.*login \([^ ]*\).*/\1/p')"
+    password="$(echo $cred | sed -n 's/.*password \([^ ]*\).*/\1/p')"
 
     log "parse_netrc(): \$cred = $cred; \$id = $id"
 
     log "parse_netrc(): END"
+}
+
+create_url()
+{
+    url="https://webreg.its.rochester.edu/prod/tapp?Navigate=$2&OnError=error.jsp&TS=$1"
+
+    log "create_url(): created '$url'"
+
+    echo "$url"
 }
 
 has_valid_session()
@@ -113,57 +158,113 @@ has_valid_session()
     return 1
 }
 
+send_request()
+{
+    log 'send_request(): BEGIN'
+
+    result="$(curl $curl_args $*)"
+
+    err=$?
+
+    if [ $err != 0 ]
+    then
+        echo 'Error: request failed.' >&2
+
+        log "send_request(): curl failed; error code $err"
+
+        log 'send_request(): END'
+
+        return 1
+    fi
+
+    echo "----- CURL REQUEST -----" >> $HTML_FILE
+
+    echo "curl $curl_args $*" >> $HTML_FILE
+
+    echo "----- HTML -----" >> $HTML_FILE
+
+    echo "$result" >> $HTML_FILE
+
+    echo "$result"
+
+    log 'send_request(): END'
+
+    return 0
+}
+
 Login()
 {
     log 'Login(): BEGIN'
 
+    ts=1415370325856
+
+    log "Login(): \$ts = $ts"
+
     parse_netrc
 
-	if [ -z "$id" ]
-	then
+	while [ -z "$id" ]
+    do
         log "Login(): \$id = $id; reading id"
 		read -p 'Net ID: ' id
         log "Login(): read id; \$id = $id"
-	fi
+    done
 
-	if [ -z "$password" ]
-	then
+	while [ -z "$password" ]
+    do
         log 'Login(): reading password'
 		stty -echo
 		read -p 'Password: ' password; echo
 		stty echo
         log 'Login(): read password'
-	fi
+    done
 
-    # TODO - Turn this into curl
+    echo 'Logging in...'
 
-    if ! command -v ruby > /dev/null 2>&1
-    then
-        echo 'Error: unable to run ruby.' >&2
-    
-        log 'Login(): Error: command Ruby does not exist. Ruby must be '\
-        'installed for this script to work.'
-    
-        log 'Login(): END'
-    
-        return 1
-    fi
+    log 'Login(): Sending login request'
 
-    # TODO - Add the necessary request after login here
+    # 'https://webreg.its.rochester.edu/prod/tapp' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: en-US,en;q=0.5' -H 'Connection: keep-alive' -H 'DNT: 1' -H 'Host: webreg.its.rochester.edu' -H 'Referer: https://webreg.its.rochester.edu/prod/web/LoginMain.jsp' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Content-Type: application/x-www-form-urlencoded'
 
-    log 'Login(): calling login.rb to log in'
-    if ! ruby login.rb "$id" "$password"
+    login_html="$(send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&TS=$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password")"
+
+    err=$?
+
+    if [ ! $err ]
     then
         echo 'Error: unable to log in.' >&2
 
         log 'Login(): Error: unable to log in'
 
-        logged_in=
+        logged_in=false
 
         log 'Login(): END'
 
         return 1
     fi
+
+    log 'Login(): Sending enter request'
+
+    enter_url="$(create_url $ts 'classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true')"
+
+    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0
+
+    enter_html="$(send_request "$enter_url")"
+    err=$?
+
+    send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=RchHoldsIndex.jsp&OnError=error.jsp"
+
+    if [ ! $err ]
+    then
+        echo 'Error: request failed.' >&2
+
+        log 'Login(): Error: enter request failed'
+
+        logged_in=false
+
+        log 'Login(): END'
+
+        return 1
+    fi
+
     log 'Login(): should be successfully logged in'
 
     logged_in=true
@@ -261,7 +362,7 @@ read_crns()
 
     if [ -z $crns ]
     then
-        echo 'Warning: you have not entered any classes to register for.' &>2
+        echo 'Warning: you have not entered any classes to register for.' >&2
 
         log 'read_crns(): \$crns is empty; not registering for any classes'
 
@@ -287,7 +388,7 @@ add_course()
     # 'A' is for auditing; 'N' is for normal grading
     if [ "$3" = 'A' ]
     then
-        gt="$3"
+        gt="A"
 
         log "add_course(): grade type given; \$gt = $gt"
     else
@@ -296,56 +397,47 @@ add_course()
         log "add_course(): grade type not given; \$gt = $gt"
     fi
 
-    add_url="https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&TS=$ts&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=$crn&GRADE_TYPE=$gt"
+    echo "Adding CRN $crn to cart..."
 
-    submit_url="https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&TS=$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
+    add_url="$(create_url $ts "regdisplay1.jsp&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=$crn&GRADE_TYPE=$gt")"
 
     log "add_course(): adding course to cart using \$add_url = $add_url"
 
-    # I'm not sure why but for both curl and Ruby's Mechanize, but not for
-    # browsers, the SSL certificate for the registration pages is found invalid
-    # and can't be validated properly. It works with the check disabled but is
-    # less secure.
+    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive'
 
-    add_html=$(curl -s -k --sslv3 "$add_url")
+    add_html="$(send_request "$add_url")"
+
     err=$?
 
     if [ $err != 0 ]
     then
-        echo 'Error: curl request failed.' >&2
-
-        log "add_course(): curl request failed; exit code = $err"
+        log 'Error: unable to add course to cart.'
 
         log 'add_course(): END'
 
+        echo 'Error: unable to add course to cart.' >&2
+
         return 1
     fi
-
-    # TODO - analyze add_html for errors
-
-    echo "$add_html"
 
     log 'add_course(): added course to cart'
 
+    submit_url="$(create_url $ts "CartResults.jsp&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm")"
+
     log "add_course(): submitting cart using \$submit_url = $submit_url"
 
-    submit_html=$(curl -s -k --sslv3 "$submit_url")
+    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0'
+
+    submit_html="$(send_request "$submit_url")"
+
     err=$?
 
     if [ $err != 0 ]
     then
-        echo 'Error: curl request failed.' >&2
-
-        log "add_course(): curl request failed; exit code = $err"
-
         log 'add_course(): END'
 
         return 1
     fi
-
-    # TODO - analyze submit_html for errors
-
-    echo "$submit_html"
 
     log 'add_course(): submitted cart'
 
@@ -363,7 +455,7 @@ then
     exit 0
 fi
 
-if ! Login
+if ! Login $(date +%s)
 then
     log 'Login failed'
 
