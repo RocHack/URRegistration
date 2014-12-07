@@ -17,16 +17,36 @@ Attempts So Far
 Browser
 -------
 
-I have gotten it to consistently work in the browser (I've used Chrome for
-this). Here's the steps:
+I have gotten it to consistently work in the browser (I've used Chrome and
+Firefox for this). Here's the steps:
 
 * Log in.
-* Pick a timestamp and CRN.
+* Pick a timestamp and CRN. The timestamp can be from significantly in the
+  past. I haven't tried yet with a future timestamp.
 * Go to the following urls, replacing #{TIME} with the timestamp and #{CRN}
   with the CRN.
+
     1. https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&TS=#{TIME}
+
     2. https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&TS=#{TIME}&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=#{CRN}&GRADE_TYPE=N
+
     3. https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&TS=#{TIME}&SUBMIT_CART=true
+
+Shell
+-----
+
+urreg uses curl. I think this is the system that is most likely to work - I can
+make all the requests and save the cookies, and I think it's close to working.
+It may just be that I need to add some more reqests in there to match the
+requests the browser does automatically.
+
+urreg has a fairly well-developed UI and logging system, unlike all the other
+scripts. A good logging system is useful because registration happens so
+rarely. It also now has a verbose mode that runs it in shell debugger mode for
+extreme logging.
+
+The script test, I believe, is basically the same as urreg but calls login.rb
+rather than using curl.
 
 Ruby
 ----
@@ -44,16 +64,3 @@ Javascript
 
 reg.js uses phantomjs/Nightmare. Neither work, and I couldn't get a good error
 message out of either. (It's also my first node.js script).
-
-Shell
------
-
-urreg uses curl. Now, I don't think this will work, because I don't think it it
-can log in and stay logged in.
-
-urreg has a fairly well-developed UI and logging system, unlike all the other
-scripts. A good logging system is useful because registration happens so
-rarely.
-
-The script test, I believe, is basically the same as urreg but calls login.rb
-rather than using curl.
