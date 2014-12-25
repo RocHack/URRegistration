@@ -1,28 +1,49 @@
 #!/bin/sh
 
-# Some code/ideas taken from bb repo, primarily in terms of the netrc. It's
-# possible that these programs could be integrated at some point, or they could
-# just share the netrc.
+if [ "$1" = '--version' ] || [ "$1" = '-v' ]
+then
+    echo "1.0"
+    exit 0
+elif [ "$1" = '--help' ] || [ "$1" = '-h' ]
+then
+    printf 'usage: %s [OPTIONS]\n\n' "$0"
+    echo "Options that must come first:"
+    echo " -h, --help       Displays this help message and exits."
+    echo " -v, --version    Displays the version number and exits."
+    echo
+    echo "Other options:"
+    echo " -q, --quiet      Turns off messages sent to stdout."
+    echo "     --verbose    Displays extra information for debugging."
+    exit 0
+fi
 
-# Curl requests taken from Firefox's Firebug
-
-v=""
+v=
 
 while [ -n "$1" ]
 do
     case "$1" in
-    "-v"|"--verbose")
-        set -x
-        v="-v"
-        ;;
+        --verbose)
+            set -x
+            v=-v
+            q=
+            ;;
+
+        -q|--quiet)
+            set +x
+            q=-q
+            v=
+            ;;
+
+        *)
+            printf "Unrecognized argument: %s\n" "$1"
+
     esac
 
     shift
 done
 
-COOKIE_JAR="COOKIES"
-LOG_FILE="LOG"
-HTML_FILE="HTML"
+COOKIE_JAR=COOKIES_JAR
+LOG_FILE=LOG
 CONFIRM_CRN=false
 
 # I'm not sure why but for both curl and Ruby's Mechanize, but not for
@@ -32,9 +53,8 @@ CONFIRM_CRN=false
 
 curl_args="-s $v -k -c $COOKIE_JAR -b $COOKIE_JAR"
 
-> $LOG_FILE
-> $COOKIE_JAR
-> $HTML_FILE
+> "$LOG_FILE"
+> "$COOKIE_JAR"
 
 log()
 {
@@ -42,26 +62,25 @@ log()
 
     [ $# = 0 ] || msg="$msg $*"
 
-    echo $msg >> $LOG_FILE
+    printf "%s\n" "$msg" >> "$LOG_FILE"
 }
 
-echo "WARNING: the file '$HTML_FILE' will contain your password in plain text."
-echo "Do not share this file with anyone else."
-
-log 'URReg v1.0'
+log 'URReg v0.0'
 
 log "Using $COOKIE_JAR as the cookie jar"
 
-log "\$curl_args = \"$curl_args\""
+log "\$curl_args = '$curl_args'"
 
 log 'BEGIN'
-
-logged_in=false
 
 id=
 password=
 
 crns=
+
+ts="TS=$(date +%s)"
+
+log "\$ts = '$ts'"
 
 is_insecure()
 {
@@ -83,8 +102,6 @@ make_secure()
     log "make_secure(): securing $1"
     chmod -066 "$1"
 }
-
-make_secure "$HTML_FILE"
 
 # get saved login info from ~/.netrc
 parse_netrc()
@@ -127,45 +144,35 @@ parse_netrc()
     id="$(echo $cred | sed -n 's/.*login \([^ ]*\).*/\1/p')"
     password="$(echo $cred | sed -n 's/.*password \([^ ]*\).*/\1/p')"
 
-    log "parse_netrc(): \$cred = $cred; \$id = $id"
+    log "parse_netrc(): \$cred = '$cred'; \$id = '$id'"
 
     log "parse_netrc(): END"
 }
 
-create_url()
-{
-    url="https://webreg.its.rochester.edu/prod/tapp?Navigate=$2&OnError=error.jsp&TS=$1"
-
-    log "create_url(): created '$url'"
-
-    echo "$url"
-}
-
-has_valid_session()
-{
-    $logged_in || return 0
-
-    # TODO - implement this
-    if true
-	then
-        logged_in=true
-		return 0
-    fi
-
-    logged_in=false
-    password=
-
-    return 1
-}
+# has_valid_session()
+# {
+#     $logged_in || return 0
+# 
+#     # TODO - implement this
+#     if true
+# 	then
+#         logged_in=true
+# 		return 0
+#     fi
+# 
+#     logged_in=false
+#     password=
+# 
+#     return 1
+# }
 
 send_request()
 {
     log 'send_request(): BEGIN'
 
-    result="$(curl $curl_args $*)"
+    html="$(curl $curl_args "$@")"
 
     err=$?
-
     if [ $err != 0 ]
     then
         echo 'Error: request failed.' >&2
@@ -177,114 +184,85 @@ send_request()
         return 1
     fi
 
-    echo "----- CURL REQUEST -----" >> $HTML_FILE
+    TS="$(printf %s "$html" | grep -o -e 'TS=[0-9]\{13\}' | tail -1)"
+    if [ -n "$TS" ]
+    then
+        log "send_request(): setting \$ts = '$TS'"
 
-    echo "curl $curl_args $*" >> $HTML_FILE
-
-    echo "----- HTML -----" >> $HTML_FILE
-
-    echo "$result" >> $HTML_FILE
-
-    echo "$result"
+        ts="$TS"
+    fi
 
     log 'send_request(): END'
-
-    return 0
 }
 
-Login()
+log_in()
 {
-    log 'Login(): BEGIN'
-
-    ts=1415370325856
-
-    log "Login(): \$ts = $ts"
+    log 'log_in(): BEGIN'
 
     parse_netrc
 
 	while [ -z "$id" ]
     do
-        log "Login(): \$id = $id; reading id"
+        log "log_in(): \$id = '$id'; reading id"
 		read -p 'Net ID: ' id
-        log "Login(): read id; \$id = $id"
+        log "log_in(): read id; \$id = '$id'"
     done
 
 	while [ -z "$password" ]
     do
-        log 'Login(): reading password'
+        log 'log_in(): reading password'
 		stty -echo
 		read -p 'Password: ' password; echo
 		stty echo
-        log 'Login(): read password'
+        log 'log_in(): read password'
     done
 
     echo 'Logging in...'
 
-    log 'Login(): Sending login request'
+    log 'log_in(): sending login request'
 
-    # 'https://webreg.its.rochester.edu/prod/tapp' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: en-US,en;q=0.5' -H 'Connection: keep-alive' -H 'DNT: 1' -H 'Host: webreg.its.rochester.edu' -H 'Referer: https://webreg.its.rochester.edu/prod/web/LoginMain.jsp' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Content-Type: application/x-www-form-urlencoded'
-
-    login_html="$(send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&TS=$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password")"
-
-    err=$?
-
-    if [ ! $err ]
-    then
+    # I don't think all these requests are necessary, but I'm not sure which
+    # ones are, so I'm just leaving them all in. TODO - remove unnecessary
+    # requests.
+    {
+        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password"
+    } && {
+        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password"
+    } && {
+        send_request 'https://webreg.its.rochester.edu/prod/tapp?Navigate=RchHoldsIndex.jsp&OnError=error.jsp'
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/web/scheduletopbar.jsp?$ts"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/web/regmain.jsp?$ts"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/web/classschedule.jsp?$ts"
+    } || {
         echo 'Error: unable to log in.' >&2
 
-        log 'Login(): Error: unable to log in'
+        log 'log_in(): Error: unable to log in'
 
-        logged_in=false
-
-        log 'Login(): END'
+        log 'log_in(): END'
 
         return 1
-    fi
+    }
 
-    log 'Login(): Sending enter request'
+    log 'log_in(): should be successfully logged in'
 
-    enter_url="$(create_url $ts 'classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true')"
-
-    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0
-
-    enter_html="$(send_request "$enter_url")"
-    err=$?
-
-    send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=RchHoldsIndex.jsp&OnError=error.jsp"
-
-    if [ ! $err ]
-    then
-        echo 'Error: request failed.' >&2
-
-        log 'Login(): Error: enter request failed'
-
-        logged_in=false
-
-        log 'Login(): END'
-
-        return 1
-    fi
-
-    log 'Login(): should be successfully logged in'
-
-    logged_in=true
-
-    log 'Login(): END'
-
-    return 0
+    log 'log_in(): END'
 }
 
 is_valid_crn()
 {
-    if [ ${#1} = 5 ] && echo "$1" | grep -q '[0-9]\{5\}' -
-    then
-        log "is_valid_crn(): $1 => TRUE"
-        return 0
-    fi
+    printf %s "$1" | grep -q '[0-9]\{5\}' || {
+        log "is_valid_crn(): $1 => FALSE"
+        return 1
+    }
 
-    log "is_valid_crn(): $1 => FALSE"
-
-    return 1
+    log "is_valid_crn(): $1 => TRUE"
 }
 
 read_crn()
@@ -295,9 +273,9 @@ read_crn()
     do
         while true
         do
-            log "read_crn(): \$crn = $crn; reading crn"
+            log "read_crn(): \$crn = '$crn'; reading crn"
             read -p 'CRN: ' crn
-            log "read_crn(): read crn; \$crn = $crn"
+            log "read_crn(): read crn; \$crn = '$crn'"
 
             if [ -z $crn ]
             then
@@ -310,7 +288,7 @@ read_crn()
 
             if is_valid_crn $crn
             then
-                log "read_crn(): using \$crn = $crn"
+                log "read_crn(): using \$crn = '$crn'"
                 break
             fi
 
@@ -326,11 +304,11 @@ read_crn()
             return 0
         fi
 
-        log "read_crn(): \$crn_confirm = $crn_confirm; reading crn"\
+        log "read_crn(): \$crn_confirm = '$crn_confirm'; reading crn"\
             "confirmation"
 
         read -p 'CRN confirmation: ' crn_confirm
-        log "read_crn(): read crn confirmation; \$crn_confirm = $crn_confirm"
+        log "read_crn(): read crn confirmation; \$crn_confirm = '$crn_confirm'"
 
         if [ "$crn" = "$crn_confirm" ]
         then
@@ -357,7 +335,7 @@ read_crns()
     do
         crns="$crns $crn"
 
-        log "read_crns(): crn read; \$crn = $crn; \$crns = $crns"
+        log "read_crns(): crn read; \$crn = '$crn'; \$crns = '$crns'"
     done
 
     if [ -z $crns ]
@@ -381,83 +359,63 @@ add_course()
     log 'add_course(): BEGIN'
 
     crn="$1"
-    ts=1415370325856
 
-    log "add_course(): using \$crn = $crn, \$ts = $ts"
+    log "add_course(): using \$crn = '$crn'"
 
     # 'A' is for auditing; 'N' is for normal grading
-    if [ "$3" = 'A' ]
+    if [ "$2" = 'A' ]
     then
-        gt="A"
+        gt=A
 
-        log "add_course(): grade type given; \$gt = $gt"
+        log "add_course(): grade type given; \$gt = '$gt'"
     else
-        gt="N"
+        gt=N
 
-        log "add_course(): grade type not given; \$gt = $gt"
+        log "add_course(): grade type not given; \$gt = '$gt'"
     fi
 
-    echo "Adding CRN $crn to cart..."
+    echo "Adding course $crn"
 
-    add_url="$(create_url $ts "regdisplay1.jsp&SHOP_CART=true&LOAD_SCHEDULE=false&ADD_CALL_NUM=$crn&GRADE_TYPE=$gt")"
+    {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&$ts&ADD_CALL_NUM=15156&LOAD_SCHEDULE=false&SHOP_CART=true&GRADE_TYPE=N"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
+    } && {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
+    } || {
+        echo 'Error: unable to add course.' >&2
 
-    log "add_course(): adding course to cart using \$add_url = $add_url"
-
-    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive'
-
-    add_html="$(send_request "$add_url")"
-
-    err=$?
-
-    if [ $err != 0 ]
-    then
-        log 'Error: unable to add course to cart.'
+        log 'add_course(): Error: unable to add course'
 
         log 'add_course(): END'
 
-        echo 'Error: unable to add course to cart.' >&2
-
         return 1
-    fi
+    }
 
-    log 'add_course(): added course to cart'
+    [ -n "$q" ] || echo "Course $crn has been successfully added."
 
-    submit_url="$(create_url $ts "CartResults.jsp&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm")"
-
-    log "add_course(): submitting cart using \$submit_url = $submit_url"
-
-    # -H 'Host: webreg.its.rochester.edu' -H 'User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:32.0) Gecko/20100101 Firefox/32.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cache-Control: max-age=0'
-
-    submit_html="$(send_request "$submit_url")"
-
-    err=$?
-
-    if [ $err != 0 ]
-    then
-        log 'add_course(): END'
-
-        return 1
-    fi
-
-    log 'add_course(): submitted cart'
+    log 'add_course(): course should be successfully added'
 
     log 'add_course(): END'
+}
 
-    return 0
+[ -n "$q" ] || {
+    echo 'Enter the CRNs you wish to register for.'
+    echo 'End your list by entering an empty CRN.'
 }
 
 if ! read_crns
 then
-    log 'No CRNs entered'
+    log 'no CRNs entered'
 
     log 'END'
 
     exit 0
 fi
 
-if ! Login $(date +%s)
+if ! log_in
 then
-    log 'Login failed'
+    log 'log_in failed'
 
     log 'END'
 
@@ -466,7 +424,14 @@ fi
 
 for crn in $crns
 do
-    add_course $crn $(date +%s)
+    if ! add_course $crn
+    then
+        log "adding course $crn failed"
+
+        log 'END'
+
+        exit 1
+    fi
 done
 
 log 'END'
