@@ -1,3 +1,5 @@
+Warning: This is an old README. Not all info is accurate.
+
 URRegistration
 ==============
 
