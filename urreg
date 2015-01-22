@@ -217,7 +217,7 @@ log_in()
         log 'log_in(): read password'
     done
 
-    echo 'Logging in...'
+    [ -n "$q" ] || echo 'Logging in...'
 
     log 'log_in(): sending login request'
 
