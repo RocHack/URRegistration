@@ -192,6 +192,8 @@ send_request()
         ts="$TS"
     fi
 
+    printf "%s\n" "$html"
+
     log 'send_request(): END'
 }
 
@@ -225,21 +227,21 @@ log_in()
     # ones are, so I'm just leaving them all in. TODO - remove unnecessary
     # requests.
     {
-        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password"
+        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password" >/dev/null
     } && {
-        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password"
+        send_request 'https://webreg.its.rochester.edu/prod/tapp' --data "Navigate=redirect.jsp&OnError=LoginError.jsp&START_APP=true&JSP_TYPE=web&$ts&TRX_ID=ValidateStudent&CHECK_REG_RESTR=true&LDAP_AUTH=true&LOAD_DEF_LOG_TERM=true&LOAD_COUNTRY_CODES=true&LOAD_STATE_CODES=true&LOAD_COLLEGE_CODES=true&LOAD_HOLD_CODES=true&LOAD_RESTRICTION_CODES=true&LOAD_RELATIONSHIP_CODES=true&STUDENT_ID=$id&STUDENT_PIN=$password" >/dev/null
     } && {
-        send_request 'https://webreg.its.rochester.edu/prod/tapp?Navigate=RchHoldsIndex.jsp&OnError=error.jsp'
+        send_request 'https://webreg.its.rochester.edu/prod/tapp?Navigate=RchHoldsIndex.jsp&OnError=error.jsp' >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts"
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts" >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts"
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=classindex.jsp&WAITPAGE=Loading.htm&LOAD_TERMS=true&TRX_ID=GetCollegeRegTerms&LOAD_DEF_REG_TERM=true&LOAD_SCHEDULE=true&OnError=error.jsp&$ts" >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/web/scheduletopbar.jsp?$ts"
+        send_request "https://webreg.its.rochester.edu/prod/web/scheduletopbar.jsp?$ts" >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/web/regmain.jsp?$ts"
+        send_request "https://webreg.its.rochester.edu/prod/web/regmain.jsp?$ts" >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/web/classschedule.jsp?$ts"
+        send_request "https://webreg.its.rochester.edu/prod/web/classschedule.jsp?$ts" >/dev/null
     } || {
         echo 'Error: unable to log in.' >&2
 
@@ -377,12 +379,19 @@ add_course()
     echo "Adding course $crn"
 
     {
-        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&$ts&ADD_CALL_NUM=15156&LOAD_SCHEDULE=false&SHOP_CART=true&GRADE_TYPE=N"
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=regdisplay1.jsp&OnError=error.jsp&$ts&ADD_CALL_NUM=15156&LOAD_SCHEDULE=false&SHOP_CART=true&GRADE_TYPE=N" >/dev/null
     } && {
-        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
-    } && {
-        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm"
-    } || {
+        send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm" >/dev/null
+    } && (
+        html="$(send_request "https://webreg.its.rochester.edu/prod/tapp?Navigate=CartResults.jsp&OnError=error.jsp&$ts&SUBMIT_CART=true&WAITPAGE=PleaseWait.htm")"
+
+        if printf "%s\n" "$html" | grep -qF "Permission required"; then
+            log 'add_course(): Error: permission code required'
+
+            echo 'Error: permission code required.' >&2
+            exit 1
+        fi
+    ) || {
         echo 'Error: unable to add course.' >&2
 
         log 'add_course(): Error: unable to add course'
