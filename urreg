@@ -108,6 +108,9 @@ parse_netrc()
 {
     log 'parse_netrc(): BEGIN'
 
+    regexid='/login/!d;s/.*login \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
+    regexpass='/password/!d;s/.*password \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
+
 	netrc="$HOME/.netrc"
 	if [ ! -f "$netrc" ]
     then
@@ -141,8 +144,8 @@ parse_netrc()
 	fi
 
     cred="$(sed -n '/machine my\.rochester\.edu/,/machine /p' $netrc)"
-    id="$(echo $cred | sed -n 's/.*login \([^ ]*\).*/\1/p')"
-    password="$(echo $cred | sed -n 's/.*password \([^ ]*\).*/\1/p')"
+    id="$(echo "$cred" | sed "$regexid")"
+    password="$(echo "$cred" | sed "$regexpass")"
 
     log "parse_netrc(): \$cred = '$cred'; \$id = '$id'"
 
