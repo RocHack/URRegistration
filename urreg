@@ -212,7 +212,7 @@ log_in()
     do
         log 'log_in(): reading password'
 		stty -echo
-		read -p 'Password: ' password; echo
+		read -r -p 'Password: ' password; echo
 		stty echo
         log 'log_in(): read password'
     done
