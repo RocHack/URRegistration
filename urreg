@@ -106,6 +106,9 @@ make_secure()
 # get saved login info from ~/.netrc
 parse_netrc()
 {
+    regexid='/login/!d;s/.*login \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
+    regexpass='/password/!d;s/.*password \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
+
     log 'parse_netrc(): BEGIN'
 
     regexid='/login/!d;s/.*login \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
