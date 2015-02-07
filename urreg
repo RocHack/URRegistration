@@ -111,8 +111,8 @@ parse_netrc()
     regexid='/login/!d;s/.*login \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
     regexpass='/password/!d;s/.*password \("\(\([^"\]\|\\.\)*\)"\|\(\([^ \]\|\\.\)*\)\).*/\2\4/;s/\\\([^\\]\)/\1/g;s/\\$//g;s/\\\\/\\/g'
 
-	netrc="$HOME/.netrc"
-	if [ ! -f "$netrc" ]
+    netrc="$HOME/.netrc"
+    if [ ! -f "$netrc" ]
     then
         log "parse_netrc(): netrc ($netrc) does not exist."
 
@@ -121,9 +121,9 @@ parse_netrc()
         return 1
     fi
 
-	if is_insecure $netrc
-	then
-		echo 'Warning: .netrc has insecure permissions.' >&2
+    if is_insecure $netrc
+    then
+        echo 'Warning: .netrc has insecure permissions.' >&2
 
         log 'parse_netrc(): netrc is insecure'
 
@@ -141,7 +141,7 @@ parse_netrc()
             log 'parse_netrc(): not securing netrc'
             ;;
         esac
-	fi
+    fi
 
     cred="$(sed -n '/machine my\.rochester\.edu/,/machine /p' $netrc)"
     id="$(echo "$cred" | sed "$regexid")"
@@ -158,9 +158,9 @@ parse_netrc()
 # 
 #     # TODO - implement this
 #     if true
-# 	then
+#     then
 #         logged_in=true
-# 		return 0
+#         return 0
 #     fi
 # 
 #     logged_in=false
@@ -206,19 +206,19 @@ log_in()
 
     parse_netrc
 
-	while [ -z "$id" ]
+    while [ -z "$id" ]
     do
         log "log_in(): \$id = '$id'; reading id"
-		read -p 'Net ID: ' id
+        read -p 'Net ID: ' id
         log "log_in(): read id; \$id = '$id'"
     done
 
-	while [ -z "$password" ]
+    while [ -z "$password" ]
     do
         log 'log_in(): reading password'
-		stty -echo
-		read -r -p 'Password: ' password; echo
-		stty echo
+        stty -echo
+        read -r -p 'Password: ' password; echo
+        stty echo
         log 'log_in(): read password'
     done
 
