@@ -394,6 +394,12 @@ add_course()
             echo 'Error: permission code required.' >&2
             exit 1
         fi
+
+        if printf "%s\n" "$html" | grep -qF "Unable"; then
+            log 'add_course(): Error: unable to register'
+            echo 'Error: unable to add course (yet).' >&2
+            add_course "$@"
+        fi
     ) || {
         echo 'Error: unable to add course.' >&2
 
