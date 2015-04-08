@@ -394,12 +394,18 @@ add_course()
             exit 1
         elif printf "%s\n" "$html" | grep -qF "Unable"; then
             log 'add_course(): Error: unable to register'
-            echo 'Error: unable to add course (yet).' >&2
+            echo 'Error: unable to add course.' >&2
+            echo 'Trying again in 5 seconds...' >&2
+            sleep 5
+            log 'add_course(): Trying again'
             add_course "$@" || exit 1
         elif printf "%s\n" "$html" | grep -qF "Cannot"; then
             log 'add_course(): Error: cannot register at this time'
             echo 'Error: cannot register at this time.' >&2
-            exit 1
+            echo 'Trying again in 5 seconds...' >&2
+            sleep 5
+            log 'add_course(): Trying again'
+            add_course "$@" || exit 1
         fi
     ) || {
         echo 'Error: unable to add course.' >&2
