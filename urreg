@@ -343,7 +343,7 @@ read_crns()
         log "read_crns(): crn read; \$crn = '$crn'; \$crns = '$crns'"
     done
 
-    if [ -z $crns ]
+    if [ -z "$crns" ]
     then
         echo 'Warning: you have not entered any classes to register for.' >&2
 
